@@ -1,43 +1,29 @@
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
-const crypto = require("crypto");
 const multer = require("multer");
+const { v2: cloudinary } = require("cloudinary");
+const streamifier = require("streamifier");
 
 const Resume = require("../models/Resume");
 const requireAdmin = require("../middleware/auth");
 
 const router = express.Router();
 
-/* -------------------- Upload Directory -------------------- */
+/* -------------------- Cloudinary -------------------- */
 
-const uploadDir = path.join(__dirname, "..", "uploads", "resume");
-
-fs.mkdirSync(uploadDir, {
-  recursive: true,
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 /* -------------------- Multer Security -------------------- */
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-
-  filename: (req, file, cb) => {
-    const safeName = `resume-${Date.now()}-${crypto
-      .randomBytes(8)
-      .toString("hex")}.pdf`;
-
-    cb(null, safeName);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
 
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB
+    fileSize: 5 * 1024 * 1024,
     files: 1,
   },
 
@@ -59,9 +45,32 @@ const upload = multer({
   },
 });
 
-/* -------------------- Public -------------------- */
+/* -------------------- Cloudinary Upload Helper -------------------- */
 
-/* -------------------- Download Active Resume -------------------- */
+const uploadToCloudinary = (file) =>
+  new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "tanush-portfolio/resumes",
+        resource_type: "raw",
+        public_id: `resume-${Date.now()}`,
+        format: "pdf",
+      },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+
+        resolve(result);
+      }
+    );
+
+    streamifier
+      .createReadStream(file.buffer)
+      .pipe(uploadStream);
+  });
+
+/* -------------------- Public -------------------- */
 
 router.get("/download", async (req, res) => {
   try {
@@ -77,36 +86,26 @@ router.get("/download", async (req, res) => {
       });
     }
 
-    res.download(
-      resume.filepath,
-      "Tanush_Kumar_Resume.pdf",
-      (error) => {
-        if (error) {
-          console.error(
-            "Failed to download resume:",
-            error.message
-          );
+    if (!resume.filepath) {
+      return res.status(404).json({
+        message: "Resume file is unavailable",
+      });
+    }
 
-          if (!res.headersSent) {
-            res.status(500).json({
-              message: "Failed to download resume",
-            });
-          }
-        }
-      }
-    );
+    return res.redirect(resume.filepath);
   } catch (error) {
     console.error(
       "Failed to download resume:",
       error.message
     );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to download resume",
     });
   }
 });
-// Get active resume
+
+/* -------------------- Get Active Resume -------------------- */
 
 router.get("/", async (req, res) => {
   try {
@@ -124,7 +123,7 @@ router.get("/", async (req, res) => {
 
     res.json({
       filename: resume.originalName,
-      url: `/uploads/resume/${resume.filename}`,
+      url: resume.filepath,
       updatedAt: resume.updatedAt,
     });
   } catch (error) {
@@ -169,8 +168,6 @@ router.post(
   },
 
   async (req, res) => {
-    let uploadedFilePath = null;
-
     try {
       if (!req.file) {
         return res.status(400).json({
@@ -178,7 +175,9 @@ router.post(
         });
       }
 
-      uploadedFilePath = req.file.path;
+      /* Upload to Cloudinary */
+
+      const result = await uploadToCloudinary(req.file);
 
       /* Deactivate previous resume */
 
@@ -190,19 +189,17 @@ router.post(
       /* Save new resume */
 
       const resume = await Resume.create({
-        filename: req.file.filename,
-        filepath: req.file.path,
+        filename: result.public_id,
+        filepath: result.secure_url,
         originalName: req.file.originalname,
         isActive: true,
       });
-
-      uploadedFilePath = null;
 
       res.status(201).json({
         message: "Resume uploaded successfully",
         resume: {
           filename: resume.originalName,
-          url: `/uploads/resume/${resume.filename}`,
+          url: resume.filepath,
           updatedAt: resume.updatedAt,
         },
       });
@@ -211,16 +208,6 @@ router.post(
         "Failed to upload resume:",
         error.message
       );
-
-      /* Remove uploaded file if database operation failed */
-
-      if (uploadedFilePath) {
-        try {
-          await fs.promises.unlink(uploadedFilePath);
-        } catch {
-          // Ignore cleanup failure
-        }
-      }
 
       res.status(500).json({
         message: "Failed to upload resume",

@@ -1,27 +1,23 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const multer = require("multer");
-const path = require("path");
-const crypto = require("crypto");
-const fs = require("fs");
+const { v2: cloudinary } = require("cloudinary");
+const streamifier = require("streamifier");
 
 const Project = require("../models/Project");
 const requireAdmin = require("../middleware/auth");
 
 const router = express.Router();
 
-/* -------------------- Upload Setup -------------------- */
+/* -------------------- Cloudinary -------------------- */
 
-const uploadDir = path.join(
-  __dirname,
-  "..",
-  "uploads",
-  "projects"
-);
-
-fs.mkdirSync(uploadDir, {
-  recursive: true,
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+/* -------------------- Upload Setup -------------------- */
 
 const allowedMimeTypes = [
   "image/jpeg",
@@ -29,34 +25,12 @@ const allowedMimeTypes = [
   "image/webp",
 ];
 
-const mimeToExtension = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-};
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-
-  filename: (req, file, cb) => {
-    const extension =
-      mimeToExtension[file.mimetype];
-
-    const randomName =
-      crypto.randomBytes(16).toString("hex") +
-      extension;
-
-    cb(null, randomName);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
 
   limits: {
     fileSize: 5 * 1024 * 1024,
+    files: 1,
   },
 
   fileFilter: (req, file, cb) => {
@@ -71,6 +45,29 @@ const upload = multer({
     cb(null, true);
   },
 });
+
+/* -------------------- Cloudinary Upload Helper -------------------- */
+
+const uploadToCloudinary = (file) =>
+  new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "tanush-portfolio/projects",
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+
+        resolve(result);
+      }
+    );
+
+    streamifier
+      .createReadStream(file.buffer)
+      .pipe(uploadStream);
+  });
 
 /* -------------------- Public -------------------- */
 
@@ -99,7 +96,33 @@ router.get("/", async (req, res) => {
 router.post(
   "/upload-image",
   requireAdmin,
-  upload.single("image"),
+  (req, res, next) => {
+    upload.single("image")(req, res, (error) => {
+      if (error instanceof multer.MulterError) {
+        if (error.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({
+            message:
+              "Project image must be 5 MB or smaller",
+          });
+        }
+
+        return res.status(400).json({
+          message: "Invalid file upload",
+        });
+      }
+
+      if (error) {
+        return res.status(400).json({
+          message:
+            error.message ||
+            "Invalid project image",
+        });
+      }
+
+      next();
+    });
+  },
+
   async (req, res) => {
     try {
       if (!req.file) {
@@ -108,27 +131,21 @@ router.post(
         });
       }
 
-      const imageUrl =
-        `/uploads/projects/${req.file.filename}`;
+      const result = await uploadToCloudinary(req.file);
 
       res.status(201).json({
         message:
           "Project image uploaded successfully",
-        image: imageUrl,
+        image: result.secure_url,
       });
     } catch (error) {
-      if (req.file?.path) {
-        fs.unlink(req.file.path, () => {});
-      }
-
       console.error(
         "Failed to upload project image:",
         error.message
       );
 
-      res.status(400).json({
+      res.status(500).json({
         message:
-          error.message ||
           "Failed to upload project image",
       });
     }
