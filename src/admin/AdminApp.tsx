@@ -1644,6 +1644,17 @@ function MessagesSection({
                     <p className="mt-1 text-sm text-white/40">
                       {message.email}
                     </p>
+                    <p className="mt-1 text-xs text-white/30">
+  {message.createdAt
+    ? new Date(message.createdAt).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : ""}
+</p>
                   </div>
 
                   <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/50">
