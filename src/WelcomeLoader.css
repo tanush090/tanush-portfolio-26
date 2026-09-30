@@ -1,0 +1,230 @@
+.welcome-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #050505;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.welcome-loader.exit {
+  animation: loaderExit 1s cubic-bezier(.77, 0, .18, 1) forwards;
+}
+
+.loader-scene {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1000px;
+}
+
+/* 3D particle sphere */
+
+.orb {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  transform-style: preserve-3d;
+  animation: rotateOrb 7s linear infinite;
+}
+
+.orb span {
+  --size: 4px;
+
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  left: 50%;
+  top: 50%;
+
+  border-radius: 50%;
+  background: white;
+
+  box-shadow:
+    0 0 8px rgba(255,255,255,.8),
+    0 0 20px rgba(120,170,255,.35);
+
+  transform:
+    rotateY(calc(var(--i) * 11.25deg))
+    translateZ(150px)
+    rotateX(calc(var(--i) * 5deg));
+
+  animation: particlePulse 2s ease-in-out infinite;
+}
+
+/* Text */
+
+.welcome-text {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+
+  mix-blend-mode: screen;
+}
+
+.welcome {
+  font-size: clamp(45px, 8vw, 110px);
+  font-weight: 800;
+  letter-spacing: .12em;
+
+  animation:
+    welcomeIn 1.2s cubic-bezier(.2,.8,.2,1) .3s both,
+    textGlow 2s ease-in-out infinite alternate;
+}
+
+.name {
+  margin-top: 12px;
+
+  font-size: clamp(11px, 1.2vw, 16px);
+  letter-spacing: .45em;
+  color: rgba(255,255,255,.55);
+
+  animation: nameIn 1s ease-out 1s both;
+}
+
+/* Loading line */
+
+.loader-line {
+  position: absolute;
+  bottom: 12%;
+  width: 180px;
+  height: 1px;
+  overflow: hidden;
+  background: rgba(255,255,255,.12);
+}
+
+.loader-line::after {
+  content: "";
+  position: absolute;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: white;
+
+  animation: loadingLine 2.5s cubic-bezier(.65,0,.35,1) forwards;
+}
+
+/* Animations */
+
+@keyframes rotateOrb {
+  from {
+    transform: rotateX(20deg) rotateY(0deg);
+  }
+
+  to {
+    transform: rotateX(380deg) rotateY(360deg);
+  }
+}
+
+@keyframes particlePulse {
+  0%,100% {
+    opacity: .25;
+    transform:
+      rotateY(calc(var(--i) * 11.25deg))
+      translateZ(145px)
+      rotateX(calc(var(--i) * 5deg));
+  }
+
+  50% {
+    opacity: 1;
+    transform:
+      rotateY(calc(var(--i) * 11.25deg))
+      translateZ(170px)
+      rotateX(calc(var(--i) * 5deg));
+  }
+}
+
+@keyframes welcomeIn {
+  from {
+    opacity: 0;
+    transform: scale(.7);
+    filter: blur(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes nameIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+    letter-spacing: .8em;
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: .45em;
+  }
+}
+
+@keyframes textGlow {
+  from {
+    text-shadow: 0 0 10px rgba(255,255,255,.1);
+  }
+
+  to {
+    text-shadow:
+      0 0 25px rgba(255,255,255,.25),
+      0 0 70px rgba(100,150,255,.12);
+  }
+}
+
+@keyframes loadingLine {
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes loaderExit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+    pointer-events: none;
+  }
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+
+  .orb {
+    width: 210px;
+    height: 210px;
+  }
+
+  .orb span {
+    transform:
+      rotateY(calc(var(--i) * 11.25deg))
+      translateZ(105px)
+      rotateX(calc(var(--i) * 5deg));
+  }
+
+  .welcome {
+    font-size: 42px;
+  }
+
+  .name {
+    font-size: 9px;
+    letter-spacing: .3em;
+  }
+}
