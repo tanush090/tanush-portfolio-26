@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/tanush-control",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tanush-control/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}
