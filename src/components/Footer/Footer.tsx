@@ -23,15 +23,6 @@ export const Footer = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const navLinks = [
-    { name: "Home", href: "#hero" },
-    { name: "About", href: "#about" },
-    { name: "Career", href: "#career" },
-    { name: "Projects", href: "#projects" },
-    { name: "Education", href: "#education" },
-    { name: "Contact", href: "#contact" },
-  ];
-
   const socialLinks = [
     {
       icon: Github,

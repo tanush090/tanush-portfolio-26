@@ -20,7 +20,7 @@ import { DotPattern } from "../lightswind/dot-pattern";
 const API = import.meta.env.VITE_API_URL;
 
 export const HeroSection = () => {
-  const [resumeUrl, setResumeUrl] = useState("");
+  const [, setResumeUrl] = useState("");
 
 useEffect(() => {
   const loadResume = async () => {
